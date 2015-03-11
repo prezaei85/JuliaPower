@@ -7,7 +7,7 @@ PartFactFlag = false
 PolarFlag = true
 require("case6ww_ps")
 
-LoadFactor = 3.0
+LoadFactor = 1.0
 ps = case6ww_ps()
 ps.shunt[:,:P] = ps.shunt[:,:P] * LoadFactor
 ps.shunt[:,:Q] = ps.shunt[:,:Q] * LoadFactor
