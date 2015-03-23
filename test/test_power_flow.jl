@@ -5,10 +5,9 @@ C = Constps()
 verbose = true
 PartFactFlag = false
 PolarFlag = true
-require("case6ww_ps")
+include("../data/case2383wp_ps.jl")
 
 LoadFactor = 1.0
-ps = case6ww_ps()
 ps.shunt[:,:P] = ps.shunt[:,:P] * LoadFactor
 ps.shunt[:,:Q] = ps.shunt[:,:Q] * LoadFactor
 
@@ -63,10 +62,13 @@ mismatch(x;args...) = mismatch_func(x,Ybus,Vmag,Sg_bus,Sd_bus,pq,pv,ref,PartFact
 ## Solve power flow
 # newton-raphson
 x, flag = nrsolve(mismatch, x0, verbose=true, linesearch="exact")
+#=
 
 # solve the unconstrained optimization problem 1/2 * g(x)' * g(x) using levenberg-marquardt 
 # algorithm, where g(x) is the mismatch in power injections
 g(x) = mismatch(x)[1]
 Jac(x) = mismatch(x, NeedMismatch=false, NeedJac=true)[2]
 results = Optim.levenberg_marquardt(g, Jac, x0)
+
+=#
 

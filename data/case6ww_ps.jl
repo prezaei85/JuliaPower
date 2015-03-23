@@ -1,7 +1,7 @@
-function case6ww_ps()
 ps = Caseps()
 
 ps.baseMVA = 100.000000;
+
 ps.bus = [
  1 3 0 0 0 0 1 1.05 0 230 1 1.05 1.05 0 0 0 0 1.5 1;
  2 2 0 0 0 0 1 1.05 0 230 1 1.05 1.05 0 0 0 0 2 1;
@@ -49,6 +49,4 @@ ps.gencost = [
 
 ps = updateps(ps)
 
-return ps
 
-end

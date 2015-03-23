@@ -24,8 +24,12 @@ function  getSbus(ps::Caseps,only_PQ_loads::Bool = false)
 	if any(f_I.<0) || any(f_I.>1.0)
 	    error("The load model in ps.shunt is not valid")
 	end
-	# get the exponent for the E portion
-	gamma = ps.shunt[:,:gamma]
+	if any(names(ps.shunt) == :gamma)
+		# get the exponent for the E portion
+		gamma = ps.shunt[:,:gamma]
+	else
+		gamma = zeros(Int64,size(ps.shunt,1))
+	end
 	# build the load matrix
 	Sd_model = [Sd.*f_Z Sd.*f_I Sd.*f_P Sd.*f_E gamma]
 

@@ -36,7 +36,7 @@ function addcolnames(ps::Caseps)
 
 	# add column names for ps.gen
 	GenColnames = ["bus","P","Q","Qmax","Qmin","Vsp","mBase","status","Pmax","Pmin",
-        "muPx","muPn","muQx","muQn","type","cost","part_fact","RRU","RRD"];
+        "muPx","muPn","muQx","muQn","type","cost","part_fact","RRU","RRD","NA","NA2"];
 	nColGen = size(ps.gen,2)
 	names!(ps.gen,[convert(Symbol,i) for i in GenColnames[1:nColGen]])
 
