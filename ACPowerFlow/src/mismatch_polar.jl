@@ -1,4 +1,5 @@
-function mismatch_polar(x::Vector{Float64},
+using Debug
+@debug function mismatch_polar(x::Vector{Float64},
 						Ybus::SparseMatrixCSC{Complex{Float64},Int64},
 						Vmag::Vector{Float64},
 						Sg_bus::Vector{Complex{Float64}},
@@ -7,7 +8,7 @@ function mismatch_polar(x::Vector{Float64},
 						pv::BitArray{1},
 						ref::BitArray{1},
 						PartFact::Vector{Float64};
-						NeedMismatch::Bool = true,
+						Si::Vector{Float64} = Float64[],
 						NeedJac::Bool = false)
 	if isempty(PartFact)
 		PartFactFlag = false
@@ -54,24 +55,32 @@ function mismatch_polar(x::Vector{Float64},
 	else
 	    error("zipe load model matrix is not the right size.")
 	end
-	if NeedMismatch
-		Sbus = Sg_bus - SZipe
-		
+	Sbus = Sg_bus - SZipe
+	
+	if PartFactFlag
+	    # make adjustments to Sbus for gen ramping
+	    Sbus  = Sbus + PartFact*rho
+	end
+	# compute the final mismatch
+	if isempty(Si)
 		if PartFactFlag
-		    # make adjustments to Sg for gen ramping
-		    RampGen        = ref | pv
-		    Sbus[RampGen]  = Sbus[RampGen] + PartFact[RampGen]*rho
-		end
-		# compute the final mismatch
-		miscx = (V .* conj(Ybus * V)) - Sbus
-		if PartFactFlag
-		    g = [real(miscx); imag(miscx[pq])]
+			S = [real(Sbus); imag(Sbus[pq])]
 		else
-		    g = [real(miscx[!ref]); imag(miscx[pq])]
+			S = [real(Sbus[!ref]); imag(Sbus[pq])]
 		end
 	else
-		g = Float64[]
+		S = deepcopy(Si)
+		if PartFactFlag
+			S  = S + PartFact*rho
+		end
 	end
+	fx = (V .* conj(Ybus * V))
+	if PartFactFlag
+	    g = [real(fx); imag(fx[pq])] - S
+	else
+	    g = [real(fx[!ref]); imag(fx[pq])] - S
+	end
+
 	if NeedJac
 		# make the Jacobian	    
 	    # do some matrix algebra (borrowed from MATPOWER)
@@ -97,7 +106,7 @@ function mismatch_polar(x::Vector{Float64},
 	        rows,cols,values = findnz(imag(dSbus_dVm[pq,pq]))
 	        dg_dx = dg_dx + sparse(rows+nBus,cols+(nBus-1),values,nx,nx)
 	        # dP_drho
-	        dg_dx = dg_dx + sparse((1:nBus)[RampGen],ix.rho,-PartFact[RampGen],nx,nx)
+	        dg_dx = dg_dx + sparse(1:nBus,repmat([ix_rho],nBus),-PartFact,nx,nx)
 	    else
 	        # no participation factor (standard power flow)
 	        # dP_dtheta
@@ -146,5 +155,5 @@ function mismatch_polar(x::Vector{Float64},
 		dg_dx = spzeros(1,1)
 	end
 
-	return g, dg_dx
+	return g, dg_dx, S
 end

@@ -1,6 +1,7 @@
 module Makeps
 
 using DataFrames
+import Base.deepcopy
 export 
 	Caseps, 
 	addcolnames, 
@@ -65,10 +66,12 @@ function updateps(ps::Caseps)
 	# add ps.bus_i to ps
 	n = size(ps.bus,1)
 	max_bus_no = maximum(ps.bus[:,:ID])
-	ps.bus_i = full(sparsevec(convert(Array,ps.bus[:,:ID]),[1:n],max_bus_no))[:,1]
+	ps.bus_i = zeros(Int64,max_bus_no)
+	ps.bus_i[ps.bus[:,:ID]] = 1:n
 
 	return ps
 end
+
 
 # define a type and function for constants. 
 immutable Constps
@@ -80,6 +83,16 @@ immutable Constps
 		2, #PV
 		3  #REF
 		)
+end
+
+# add a method to copy ps cases
+
+function Base.deepcopy(ps::Caseps) 
+	newps = Caseps()
+	for i = 1:length(names(ps))
+		newps.(names(ps)[i]) = deepcopy(ps.(names(ps)[i]))
+	end
+	return newps
 end
 
 #=

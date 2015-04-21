@@ -7,7 +7,10 @@ export
 	getSbus,
 	mismatch_polar,
 	mismatch_rectangular,
-	nrsolve
+	nrsolve,
+	acpf!,
+	init_mismatch,
+	FindSubGraphs
 	
 # Extend real() and imag() for sparce matrices (they currently don't take a sparce matrix as input)
 real(A::SparseMatrixCSC) = SparseMatrixCSC(A.m,A.n,A.colptr,A.rowval,real(A.nzval))
@@ -27,6 +30,12 @@ include("mismatch_rectangular.jl")
 
 # Newton-Raphson solver
 include("nrsolve.jl")
+
+# Main function to run power flow
+include("acpf.jl")
+
+# Find the subgraphs
+include("FindSubGraphs.jl")
 
 end
 

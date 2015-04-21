@@ -1,6 +1,6 @@
 ps = Caseps()
 
-ps.baseMVA = 100.000000;
+ps.baseMVA = 100.0;
 
 ps.bus = [
  1 3 0 0 0 0 1 1.05 0 230 1 1.05 1.05 0 0 0 0 1.5 1;
@@ -32,9 +32,9 @@ ps.gen = [
 ];
 
 ps.shunt = [
- 4 70 70 1 0 1 1 100000 0 0;
- 5 70 70 1 0 1 1 100000 0 0;
- 6 70 70 1 0 1 1 100000 0 0;
+ 4 70. 70. 1 0 1 1 100000 0 0;
+ 5 70. 70. 1 0 1 1 100000 0 0;
+ 6 70. 70. 1 0 1 1 100000 0 0;
 ];
 
 ps.areas = [
@@ -48,5 +48,6 @@ ps.gencost = [
 ];
 
 ps = updateps(ps)
+save("data/case6ww_ps.jld", "ps", ps) # needs: using Makeps, HDF5, JLD
 
 

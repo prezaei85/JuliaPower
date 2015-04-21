@@ -3,25 +3,27 @@ function nrsolve(mismatch::Function,
 				 x0::Vector{Float64};
 				 max_iter::Integer = 20,
 				 gtol::Real = 1e-9,
-				 verbose::Bool = false,
+				 verbose::Bool = true,
 				 linesearch::String = "none")
 
 	# solve power flow with the mismatch function
 	converged = false
 	iter = 0 
-	x, x_previous = copy(x0), copy(x0)
+	x = deepcopy(x0)
 	if verbose
-		println("Iter   Max(|g|)   |g|_2      max(Jac.'*g)      alpha")
+		println("Iter   Max(|g|)   |g|_2      max(Jac'*g)      alpha")
 	end
 	norm2(x) = sum(x.^2)
 
 	for iter = 1:max_iter
 		# evaluate the function
-		g,Jac = mismatch(x,NeedMismatch=true,NeedJac=true)
+		g,Jac = mismatch(x,NeedJac=true)
 		max_mismatch = maximum(abs(g))
 		if max_mismatch < gtol
 			converged = true
-			println("Solution found.")
+            if verbose 
+    			println("Solution found.")
+            end
 			break
 		end
 
@@ -34,7 +36,7 @@ function nrsolve(mismatch::Function,
         p = -(Jac\g)
         
         # save x for the plot below with different alpha's
-        copy!(x_previous,x)
+        x_previous = deepcopy(x)
         
         # do some sort of line search to select the step size and the new x
         if linesearch == "none"
