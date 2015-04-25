@@ -9,30 +9,40 @@ function acpf!(ps::Caseps;
     nodes = ps.bus[:,:ID]
     br_status = ps.branch[:,:status]
     links = ps.branch[br_status, [:from, :to]]
-    graphNos = FindSubsGraphs(nodes,links)
+    graphNos, linkNos = FindSubGraphs(nodes,links)
     Vmag = ps.bus[:Vmag] # note that Vmag and theta are passed by reference, so they are in fact the same as ps.bus[:Vmag] and ps.bus[:Vang]
-    ps.bus[:Vang] = 0.0
-    theta = convert(Array,ps.bus[:Vang])
+    ps.bus[:,:Vang] = 0.0
+    theta = ps.bus[:Vang]
     n_subgraph = maximum(graphNos)
-    one_converge_flag = false
+    Ybus, Yf, Yt = getYbus(ps)
+    Sbus, Sd, Sg = getSbus(ps)
+    Sd = sum(Sd,2)
+    D = ps.bus_i[ps.shunt[:,:bus]]
+    Sd_bus = zeros(Complex{Float64},nBus); Sd_bus[D] = Sd
+    F = ps.bus_i[ps.branch[:,:from]]
+    T = ps.bus_i[ps.branch[:,:to]]
+    not_converged = Int64[] # list of the islands that did not converge
     for i = 1:n_subgraph
+        # find buses in this island
         busi_sub = find(graphNos .== i)
+        # find branches in this island
+        bri_sub = find(linkNos .== i)
         mismatch, x0, ix_Vmag_sub, ix_theta_sub, pq_sub, ref_sub = 
             init_mismatch(ps, busi_sub, verbose, PartFactFlag, PartFact, PolarFlag)
         ## Solve power flow
         # newton-raphson
-        x, converged = nrsolve(mismatch, x0, verbose=verbose, linesearch="exact");
+        x, converged = nrsolve(mismatch, x0, verbose=verbose, linesearch="exact")
         
         if converged
-            one_converge_flag = true # just check if at least one converged
             # save the results
             if PolarFlag
-                idx = [busi_sub][pq_sub]
-                Vmag[idx] = x[ix_Vmag_sub]
-                idx = [busi_sub][!ref_sub]
-                theta[idx] = x[ix_theta_sub]
-                idx = [busi_sub][ref_sub]
-                theta[idx] = 0
+                Vmag_sub = Vmag[busi_sub]
+                Vmag_sub[pq_sub] = x[ix_Vmag_sub]
+                Vmag[busi_sub] = Vmag_sub # this updates ps.bus[:,:Vmag]
+                theta_sub = theta[busi_sub]
+                theta_sub[!ref_sub] =  x[ix_theta_sub]
+                theta_sub[ref_sub]  = 0.
+                theta[busi_sub] = theta_sub # this updates ps.bus[:,:Vang]
             else
                 # ignore this for now
                 #=
@@ -44,57 +54,72 @@ function acpf!(ps::Caseps;
                 theta = atan(f./e)
                 =#
             end
-        elseif verbose
-            println("Power flow did not converge on island $i of $n_subgraph.")
+            # update results in ps only for this island
+            V_sub = Vmag_sub.*exp(im*theta_sub)
+            V = zeros(Complex{Float64},nBus)
+            V[busi_sub] = V_sub
+            V_sub = Vmag_sub.*exp(im*theta_sub)
+            Yf_sub = Yf[bri_sub,busi_sub]
+            Yt_sub = Yt[bri_sub,busi_sub]
+            If_sub = Yf_sub*V_sub
+            It_sub = Yt_sub*V_sub
+            F_sub = F[bri_sub]
+            Sf_sub = V[F_sub] .* conj(If_sub)
+            T_sub = T[bri_sub]
+            St_sub = V[T_sub] .* conj(It_sub)
+            ps.branch[bri_sub,:ImagF] = abs(If_sub)
+            ps.branch[bri_sub,:ImagT] = abs(It_sub)
+            ps.branch[bri_sub,:Pf] = real(Sf_sub) * ps.baseMVA
+            ps.branch[bri_sub,:Qf] = imag(Sf_sub) * ps.baseMVA
+            ps.branch[bri_sub,:Pt] = real(St_sub) * ps.baseMVA
+            ps.branch[bri_sub,:Qt] = imag(St_sub) * ps.baseMVA
+            # update ps.gen
+            Ybus_sub = Ybus[busi_sub,busi_sub]
+            Sg_bus_sub = V_sub.*conj(Ybus_sub*V_sub) + Sd_bus[busi_sub]
+            Pg_bus_sub = real(Sg_bus_sub)
+            Qg_bus_sub = imag(Sg_bus_sub)
+            gen_busID = ps.gen[:,:bus]
+            gen_busi = ps.bus_i[gen_busID]
+            for (j,this_bus_i) = enumerate(busi_sub)
+                gi = (gen_busi .== this_bus_i)
+                if V[this_bus_i] == 0.
+                    ps.gen[gi,:P] = 0.
+                    ps.gen[gi,:Q] = 0.
+                else
+                    if sum(gi) == 1
+                        Pg_ratio = 1
+                    else
+                        Pg_ratio = ps.gen[gi,:Pmax]/sum(ps.gen[gi,:Pmax])
+                    end
+                    ps.gen[gi,:P] = Pg_bus_sub[j] * Pg_ratio * ps.baseMVA
+                    ps.gen[gi,:Q] = Qg_bus_sub[j] * Pg_ratio * ps.baseMVA
+                end
+            end
+        else
+            if verbose
+                println("Power flow did not converge on island $i of $n_subgraph.")
+            end
+            not_converged = [not_converged, i]
+            # update ps with 0 values for non-converged islands
+            Vmag[busi_sub] = 0.
+            theta[busi_sub] = 0.
+            ps.branch[bri_sub,:ImagF] = 0.
+            ps.branch[bri_sub,:ImagT] = 0.
+            ps.branch[bri_sub,:Pf] = 0.
+            ps.branch[bri_sub,:Qf] = 0.
+            ps.branch[bri_sub,:Pt] = 0.
+            ps.branch[bri_sub,:Qt] = 0.
+            gen_busID = ps.gen[:,:bus]
+            gen_busi = ps.bus_i[gen_busID]
+            for j = busi_sub
+                gi = (gen_busi .== j)
+                ps.gen[gi,:P] = 0.
+                ps.gen[gi,:Q] = 0.
+            end
         end
     end
-    if one_converge_flag
-        # make sure that only the converged islands have updated data!
 
-        # voltage results
-        V = Vmag.*exp(im*theta)
-        D = ps.bus_i[ps.shunt[:,:bus]]
-        Ybus, Yf, Yt = getYbus(ps)
-        Sbus, Sd, Sg = getSbus(ps)
-        Sd = sum(Sd,2)
-        Sd_bus = zeros(Complex{Float64},nBus); Sd_bus[D] = Sd
-        # branch results
-        If = Yf*V # branch status is accounted for in Yf
-        It = Yt*V # branch status is accounted for in Yt
-        F = ps.bus_i[ps.branch[:,:from]]
-        T = ps.bus_i[ps.branch[:,:to]]
-        Sf = V[F] .* conj(If)
-        St = V[T] .* conj(It)
-        ps.branch[:,:ImagF] = abs(If)
-        ps.branch[:,:ImagT] = abs(It)
-        ps.branch[:,:Pf] = real(Sf) * ps.baseMVA
-        ps.branch[:,:Qf] = imag(Sf) * ps.baseMVA
-        ps.branch[:,:Pt] = real(St) * ps.baseMVA
-        ps.branch[:,:Qt] = imag(St) * ps.baseMVA
-        # update ps.gen
-        Sg_bus = V.*conj(Ybus*V) + Sd_bus
-        Pg_bus = real(Sg_bus)
-        Qg_bus = imag(Sg_bus)
-        for gi = 1:size(ps.gen,1)
-            gen_bus = ps.gen[gi,1]
-            gen_bus_i = ps.bus_i[gen_bus]
-            if Vmag[gen_bus_i] == 0
-                ps.gen[gi,:P] = 0
-                ps.gen[gi,:Q] = 0
-            else
-                gens_at_bus = ps.gen[:,1] .== gen_bus
-                if sum(gens_at_bus) == 1
-                    Pg_ratio = 1
-                else
-                    Pg_ratio = ps.gen[gi,:Pmax]/sum(ps.gen[gens_at_bus,:Pmax])
-                end
-                ps.gen[gi,:P] = Pg_bus[gen_bus_i] * Pg_ratio * ps.baseMVA
-                ps.gen[gi,:Q] = Qg_bus[gen_bus_i] * Pg_ratio * ps.baseMVA
-            end
-        end 
-    end
-
-    return 
+    return not_converged
 
     #=
     # solve the unconstrained optimization problem 1/2 * g(x)' * g(x) using levenberg-marquardt 

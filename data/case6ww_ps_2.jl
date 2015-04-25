@@ -71,7 +71,7 @@ ps.gencost = [
  2 0 0 3 0.00741 10.833 240;
 ];
 
-ps = updateps(ps)
+updateps!(ps)
 save("data/case6ww_ps_2.jld", "ps", ps) # needs: using Makeps, HDF5, JLD
 
 

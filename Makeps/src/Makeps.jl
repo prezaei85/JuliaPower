@@ -4,8 +4,7 @@ using DataFrames
 import Base.deepcopy
 export 
 	Caseps, 
-	addcolnames, 
-	updateps, 
+	updateps!, 
 	Constps
 
 type Caseps
@@ -20,7 +19,7 @@ type Caseps
     Caseps() = new()
 end
 
-function addcolnames(ps::Caseps)
+function addcolnames!(ps::Caseps)
 	# add column names for ps.bus
 	BusColnames = ["ID","type","Pd","Qd","Gs","Bs","area","Vmag","Vang","basekV",
 		"zone","Vmax","Vmin","lamP","lamQ","muVx","muVn","locX","locY","comm_status",
@@ -47,12 +46,12 @@ function addcolnames(ps::Caseps)
 	nColShunt = size(ps.shunt,2)
 	names!(ps.shunt,[convert(Symbol,i) for i in ShuntColnames[1:nColShunt]])
 
-	return ps
+	return
 end
 
-function updateps(ps::Caseps)
+function updateps!(ps::Caseps)
 	# add column labels to ps
-	ps = addcolnames(ps)
+	addcolnames!(ps)
 
 	# make bus ID numbers an integer
 	ps.bus[:ID] = int(ps.bus[:ID])
@@ -69,7 +68,7 @@ function updateps(ps::Caseps)
 	ps.bus_i = zeros(Int64,max_bus_no)
 	ps.bus_i[ps.bus[:,:ID]] = 1:n
 
-	return ps
+	return
 end
 
 

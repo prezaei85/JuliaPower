@@ -1,7 +1,8 @@
-function FindSubsGraphs(nodes,links)
+function FindSubGraphs(nodes,links)
 	# find connected components in a graph
 	nodes = vec(nodes) # make sure nodes are in vector format and not matrix
 	N = length(nodes)
+    nbr = size(links,1)
     bus_i = zeros(Int64,maximum(nodes))
     bus_i[nodes] = 1:N
 	F = bus_i[links[:,1]]
@@ -10,8 +11,9 @@ function FindSubsGraphs(nodes,links)
 
 	grNo = 1
 	graphNos = zeros(Int64,N)
+    linkNos = zeros(Int64,nbr)
 	next = 1
-	while !isempty(next)
+	while next != 0
         included = falses(N)
         included[next] = true
         oldLen = 0
@@ -22,8 +24,14 @@ function FindSubsGraphs(nodes,links)
         end
         graphNos[included] = grNo
         grNo = grNo+1
-        next = find(graphNos.==0)
+        next = findfirst(graphNos.==0,1)
 	end
-    nSubGraphs = grNo-1
-    return graphNos
+    # find where each link is
+    for i = 1:nbr
+        this_busi = F[i]
+        linkNos[i] = graphNos[this_busi]
+    end
+
+    return graphNos, linkNos
 end
+

@@ -31,6 +31,7 @@ function nrsolve(mismatch::Function,
         Jg = Jac.'*g;
         max_Jg = maximum(Jg)
         g2 = sqrt(sum(g.^2))
+        # @bp
 
         # choose the search direction
         p = -(Jac\g)

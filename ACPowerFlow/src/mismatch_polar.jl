@@ -1,5 +1,4 @@
-using Debug
-@debug function mismatch_polar(x::Vector{Float64},
+function mismatch_polar(x::Vector{Float64},
 						Ybus::SparseMatrixCSC{Complex{Float64},Int64},
 						Vmag::Vector{Float64},
 						Sg_bus::Vector{Complex{Float64}},
@@ -157,3 +156,5 @@ using Debug
 
 	return g, dg_dx, S
 end
+
+
